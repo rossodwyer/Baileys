@@ -1,4 +1,5 @@
 import WebSocket from 'ws'
+import { HttpsProxyAgent } from 'https-proxy-agent'
 import { DEFAULT_ORIGIN } from '../../Defaults'
 import { AbstractSocketClient } from './types'
 
@@ -23,12 +24,21 @@ export class WebSocketClient extends AbstractSocketClient {
 			return
 		}
 
+		// Auto-inject proxy agent from HTTPS_PROXY env var if no agent is configured.
+		// This allows cloud deployments to route WhatsApp traffic through a residential proxy
+		// by setting HTTPS_PROXY without requiring the consuming application to explicitly
+		// configure a Baileys agent.
+		let agent = this.config.agent
+		if (!agent && process.env.HTTPS_PROXY) {
+			agent = new HttpsProxyAgent(process.env.HTTPS_PROXY)
+		}
+
 		this.socket = new WebSocket(this.url, {
 			origin: DEFAULT_ORIGIN,
 			headers: this.config.options?.headers as {},
 			handshakeTimeout: this.config.connectTimeoutMs,
 			timeout: this.config.connectTimeoutMs,
-			agent: this.config.agent
+			agent
 		})
 
 		this.socket.setMaxListeners(0)
